@@ -20,6 +20,7 @@
 #include "ui_fsmenu/loadgame.h"
 
 #include <cstdio>
+#include <thread>
 
 #include "game_io/game_loader.h"
 #include "game_io/game_preload_data_packet.h"
@@ -32,6 +33,7 @@
 #include "logic/game.h"
 #include "timestring.h"
 #include "ui_basic/messagebox.h"
+#include "wlapplication.h"
 
 
 Fullscreen_Menu_LoadGame::Fullscreen_Menu_LoadGame
@@ -228,6 +230,32 @@ void Fullscreen_Menu_LoadGame::double_clicked(uint32_t) {
 	clicked_ok();
 }
 
+void Fullscreen_Menu_LoadGame::fill_list_worker
+	(std::function<void(std::string, std::string)> on_game_file_function)
+{
+	// Fill it with all files we find.
+	g_fs->FindFiles("save", "*", &m_gamefiles, 0);
+
+	Widelands::Game_Preload_Data_Packet gpdp;
+	WLApplication* app = WLApplication::get();
+
+	const filenameset_t & gamefiles = m_gamefiles;
+	container_iterate_const(filenameset_t, gamefiles, i) {
+		char const * const name = i.current->c_str();
+
+		try {
+			Widelands::Game_Loader gl(name, m_game);
+			gl.preload_game(gpdp);
+
+			std::function<void()> add_funct = std::bind
+				(on_game_file_function, FileSystem::FS_FilenameWoExt(name), name);
+			app->post_runnable(add_funct);
+		} catch (const _wexception &) {
+			//  we simply skip illegal entries
+		}
+	}
+
+}
 /**
  * Fill the file list
  */
@@ -238,28 +266,17 @@ void Fullscreen_Menu_LoadGame::fill_list() {
 			m_list.add(FileSystem::FS_FilenameWoExt(path).c_str(), path);
 		}
 	} else { // Normal case
-		// Fill it with all files we find.
-		g_fs->FindFiles("save", "*", &m_gamefiles, 0);
+		std::function<void(std::string, std::string)> add_function =
+			[this](std::string id, std::string name) {
+				m_list.add(id.c_str(), name.c_str());
+				if (m_list.size() == 1) {
+					m_list.select(0);
+				}
+		};
 
-		Widelands::Game_Preload_Data_Packet gpdp;
-
-		const filenameset_t & gamefiles = m_gamefiles;
-		container_iterate_const(filenameset_t, gamefiles, i) {
-			char const * const name = i.current->c_str();
-
-			try {
-				Widelands::Game_Loader gl(name, m_game);
-				gl.preload_game(gpdp);
-
-				m_list.add(FileSystem::FS_FilenameWoExt(name).c_str(), name);
-			} catch (const _wexception &) {
-				//  we simply skip illegal entries
-			}
-		}
+		std::thread find_thread(&Fullscreen_Menu_LoadGame::fill_list_worker, this, add_function);
+		find_thread.detach();
 	}
-
-	if (m_list.size())
-		m_list.select(0);
 }
 
 bool Fullscreen_Menu_LoadGame::handle_key(bool down, SDL_keysym code)

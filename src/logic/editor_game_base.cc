@@ -84,7 +84,7 @@ Editor_Game_Base::~Editor_Game_Base() {
 
 	delete m_lua;
 
-	if (g_gr) { // dedicated does not use the sound_handler
+	if (g_gr && g_sound_handler.m_egbase) { // dedicated does not use the sound_handler
 		assert(this == g_sound_handler.m_egbase);
 		g_sound_handler.m_egbase = 0;
 	}

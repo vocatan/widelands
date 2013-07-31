@@ -19,6 +19,8 @@
 
 #include "ui_fsmenu/loadreplay.h"
 
+#include <thread>
+
 #include "game_io/game_loader.h"
 #include "game_io/game_preload_data_packet.h"
 #include "graphic/graphic.h"
@@ -29,8 +31,9 @@
 #include "logic/replay.h"
 #include "timestring.h"
 #include "ui_basic/messagebox.h"
+#include "wlapplication.h"
 
-Fullscreen_Menu_LoadReplay::Fullscreen_Menu_LoadReplay() :
+Fullscreen_Menu_LoadReplay::Fullscreen_Menu_LoadReplay(Widelands::Game & g) :
 	Fullscreen_Menu_Base("choosemapmenu.jpg"),
 
 // Values for alignment and size
@@ -82,7 +85,8 @@ Fullscreen_Menu_LoadReplay::Fullscreen_Menu_LoadReplay() :
 	m_ta_players
 		(this, get_w() * 71 / 100, get_h() * 41 / 100),
 	m_ta_win_condition
-		(this, get_w() * 71 / 100, get_h() * 9 / 20)
+		(this, get_w() * 71 / 100, get_h() * 9 / 20),
+	m_game(g)
 {
 	m_back.sigclicked.connect(boost::bind(&Fullscreen_Menu_LoadReplay::end_modal, boost::ref(*this), 0));
 	m_ok.sigclicked.connect(boost::bind(&Fullscreen_Menu_LoadReplay::clicked_ok, boost::ref(*this)));
@@ -204,16 +208,13 @@ void Fullscreen_Menu_LoadReplay::replay_selected(uint32_t const selected)
 	}
 }
 
-
-/**
- * Fill the file list by simply fetching all files that end with the
- * replay suffix and have a valid associated savegame.
- */
-void Fullscreen_Menu_LoadReplay::fill_list()
-{
+void Fullscreen_Menu_LoadReplay::fill_list_worker
+	(std::function<void(std::string, std::string)> on_found_function) {
 	filenameset_t files;
 
 	g_fs->FindFiles(REPLAY_DIR, "*" REPLAY_SUFFIX, &files, 1);
+	WLApplication* app = WLApplication::get();
+	Widelands::Game_Preload_Data_Packet gpdp;
 
 	for
 		(filenameset_t::iterator pname = files.begin();
@@ -226,18 +227,32 @@ void Fullscreen_Menu_LoadReplay::fill_list()
 			continue;
 
 		try {
-			Widelands::Game_Preload_Data_Packet gpdp;
-			Widelands::Game game;
-			Widelands::Game_Loader gl(savename, game);
+			Widelands::Game_Loader gl(savename, m_game);
 			gl.preload_game(gpdp);
 
-			m_list.add
-				(FileSystem::FS_FilenameWoExt(pname->c_str()).c_str(), *pname);
+			std::function<void()> add_funct = std::bind
+				(on_found_function, FileSystem::FS_FilenameWoExt(pname->c_str()), *pname);
+			app->post_runnable(add_funct);
 		} catch (const _wexception &) {} //  we simply skip illegal entries
 	}
+}
 
-	if (m_list.size())
-		m_list.select(0);
+/**
+ * Fill the file list by simply fetching all files that end with the
+ * replay suffix and have a valid associated savegame.
+ */
+void Fullscreen_Menu_LoadReplay::fill_list()
+{
+	std::function<void(std::string, std::string)> add_function
+		= [this](std::string id, std::string name) {
+		m_list.add(id.c_str(), name);
+		if (m_list.size() == 1) {
+			m_list.select(0);
+		}
+	};
+
+	std::thread load_thread(&Fullscreen_Menu_LoadReplay::fill_list_worker, this, add_function);
+	load_thread.detach();
 }
 
 bool Fullscreen_Menu_LoadReplay::handle_key(bool down, SDL_keysym code)

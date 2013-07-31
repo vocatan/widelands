@@ -55,6 +55,7 @@ struct Fullscreen_Menu_LoadGame : public Fullscreen_Menu_Base {
 
 private:
 	void no_selection();
+	void fill_list_worker(std::function<void(std::string, std::string)> on_game_file_function);
 
 	uint32_t    m_butw;
 	uint32_t    m_buth;
@@ -62,9 +63,9 @@ private:
 	std::string m_fn;
 
 	Widelands::Game &                               m_game;
-	UI::Button                             m_back;
-	UI::Button                             m_ok;
-	UI::Button                             m_delete;
+	UI::Button                                      m_back;
+	UI::Button                                      m_ok;
+	UI::Button                                      m_delete;
 	UI::Listselect<const char *>                    m_list;
 	UI::Textarea                                    m_title;
 	UI::Textarea                                    m_label_mapname;

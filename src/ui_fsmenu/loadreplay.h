@@ -25,12 +25,16 @@
 #include "ui_basic/listselect.h"
 #include "ui_basic/textarea.h"
 
+namespace Widelands {
+class Game;
+}
+
 
 /**
  * Select a replay from a list of replays.
  */
 struct Fullscreen_Menu_LoadReplay : public Fullscreen_Menu_Base {
-	Fullscreen_Menu_LoadReplay();
+	Fullscreen_Menu_LoadReplay(Widelands::Game &);
 
 	const std::string & filename() {return m_filename;}
 
@@ -44,6 +48,7 @@ struct Fullscreen_Menu_LoadReplay : public Fullscreen_Menu_Base {
 
 private:
 	void no_selection();
+	void fill_list_worker(std::function<void(std::string, std::string)> on_found_function);
 
 	uint32_t m_butw;
 	uint32_t m_buth;
@@ -51,16 +56,17 @@ private:
 	UI::Button                             m_back;
 	UI::Button                             m_ok;
 	UI::Button                             m_delete;
-	UI::Listselect<std::string>                     m_list;
-	UI::Textarea                                    m_title;
-	UI::Textarea                                    m_label_mapname;
-	UI::Textarea                                    m_tamapname;
-	UI::Textarea                                    m_label_gametime;
-	UI::Textarea                                    m_tagametime;
-	UI::Textarea                                    m_label_players;
-	UI::Textarea                                    m_ta_players;
-	UI::Textarea                                    m_ta_win_condition;
-	std::string                                     m_filename;
+	UI::Listselect<std::string>            m_list;
+	UI::Textarea                           m_title;
+	UI::Textarea                           m_label_mapname;
+	UI::Textarea                           m_tamapname;
+	UI::Textarea                           m_label_gametime;
+	UI::Textarea                           m_tagametime;
+	UI::Textarea                           m_label_players;
+	UI::Textarea                           m_ta_players;
+	UI::Textarea                           m_ta_win_condition;
+	std::string                            m_filename;
+	Widelands::Game&                       m_game;
 };
 
 
