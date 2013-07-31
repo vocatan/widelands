@@ -24,6 +24,9 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <vector>
+#include <functional>
+#include <mutex>
 
 #include <SDL_events.h>
 #include <SDL_keyboard.h>
@@ -202,6 +205,14 @@ struct WLApplication {
 	bool campaign_game();
 	void replay();
 
+	/**
+	 * Post an execution block that will be executed in tha main
+	 * loop. This can be called from any thread, and will ensure
+	 * the code is executed in the main thread
+	 */
+	void post_runnable(std::function<void()> funct);
+	void run_runnables();
+
 #ifndef NDEBUG
 #ifndef _WIN32
 	//not all of these need to be public, but I consider signal handling
@@ -294,6 +305,10 @@ protected:
 
 	/// flag indicating if stdout and stderr have been redirected
 	bool m_redirected_stdio;
+
+	/// List if lambdas to run next tick
+	std::vector<std::function<void()>> m_runnables;
+	std::mutex                         m_runnables_mutex;
 private:
 	///Holds this process' one and only instance of WLApplication, if it was
 	///created already. nullptr otherwise.

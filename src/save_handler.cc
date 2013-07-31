@@ -19,6 +19,9 @@
 
 #include "save_handler.h"
 
+#include <functional>
+#include <thread>
+
 #include "chat.h"
 #include "game_io/game_saver.h"
 #include "io/filesystem/filesystem.h"
@@ -31,6 +34,56 @@
 
 using Widelands::Game_Saver;
 
+void SaveHandler::save_worker
+	(Widelands::Game& game, std::string filename, std::function<void(std::string)> onError,
+	 std::function<void()> onSuccess)
+{
+	m_save_mutex.lock();
+	log("save worker: starting...\n");
+	bool const binary =
+		!g_options.pull_section("global").get_bool("nozip", false);
+	// Make sure that the base directory exists
+	g_fs->EnsureDirectoryExists(get_base_dir());
+
+	// Make a filesystem out of this
+	std::unique_ptr<FileSystem> fs;
+	if (!binary) {
+		fs.reset(g_fs->CreateSubFileSystem(filename, FileSystem::DIR));
+	} else {
+		fs.reset(g_fs->CreateSubFileSystem(filename, FileSystem::ZIP));
+	}
+
+	Game_Saver gs(*fs, game);
+	WLApplication* app = WLApplication::get();
+	try {
+		gs.save();
+		m_save_mutex.unlock();
+	} catch (const std::exception & e) {
+		m_save_mutex.unlock();
+		if (onError) {
+			std::function<void()> error_funct = std::bind(onError, std::string(e.what()));
+			app->post_runnable(error_funct);
+		}
+		log("save worker: Error caught, quitting...\n");
+		return;
+	}
+	if (onSuccess) {
+		app->post_runnable(onSuccess);
+	}
+	log("save worker: done...\n");
+}
+
+void SaveHandler::save
+	(Widelands::Game& game, const std::string& filename,
+	 std::function< void(std::string) > onError,
+    std::function< void() > onSuccess)
+{
+	log("Launching save thread\n");
+	std::thread save_thread(&SaveHandler::save_worker, this, std::ref(game), filename, onError, onSuccess);
+	save_thread.detach();
+	log("Save thread launched\n");
+}
+
 /**
 * Check if autosave is not needed.
  */
@@ -41,6 +94,9 @@ void SaveHandler::think(Widelands::Game & game, int32_t realtime) {
 	if (!m_allow_saving) {
 		return;
 	}
+	const int32_t autosave_interval_in_seconds =
+			g_options.pull_section("global").get_int
+				("autosave", DEFAULT_AUTOSAVE_INTERVAL * 60);
 
 	if (m_save_requested) {
 		if (!m_save_filename.empty()) {
@@ -51,9 +107,6 @@ void SaveHandler::think(Widelands::Game & game, int32_t realtime) {
 		m_save_requested = false;
 		m_save_filename = "";
 	} else {
-		const int32_t autosave_interval_in_seconds =
-			g_options.pull_section("global").get_int
-				("autosave", DEFAULT_AUTOSAVE_INTERVAL * 60);
 		if (autosave_interval_in_seconds <= 0) {
 			return; // no autosave requested
 		}
@@ -64,14 +117,10 @@ void SaveHandler::think(Widelands::Game & game, int32_t realtime) {
 		}
 
 		log("Autosave: interval elapsed (%d s), saving\n", elapsed);
+		m_last_saved_time = realtime;
 	}
 
-	// TODO: defer saving to next tick so that this message is shown
-	// before the actual save, or put the saving logic in another thread
-	game.get_ipl()->get_chat_provider()->send_local
-		(_("Saving game..."));
-
-	// save the game
+	// Prepare filename
 	const std::string complete_filename = create_file_name(get_base_dir(), filename);
 	std::string backup_filename;
 
@@ -85,8 +134,13 @@ void SaveHandler::think(Widelands::Game & game, int32_t realtime) {
 		g_fs->Rename(complete_filename, backup_filename);
 	}
 
-	std::string error;
-	if (!save_game(game, complete_filename, &error)) {
+	// Prepare the save job
+	game.get_ipl()->get_chat_provider()->send_local
+		(_("Saving game..."));
+
+	std::function< void(std::string) > on_error_funct =
+		[&game, complete_filename, backup_filename, realtime, autosave_interval_in_seconds, this]
+			(std::string error) {
 		log("Autosave: ERROR! - %s\n", error.c_str());
 		game.get_ipl()->get_chat_provider()->send_local
 			(_("Saving failed!"));
@@ -99,17 +153,20 @@ void SaveHandler::think(Widelands::Game & game, int32_t realtime) {
 			g_fs->Rename(backup_filename, complete_filename);
 		}
 		// Wait 30 seconds until next save try
-		m_last_saved_time = m_last_saved_time + 30000;
-		return;
-	} else {
-		// if backup file was created, time to remove it
-		if (backup_filename.length() > 0 && g_fs->FileExists(backup_filename))
-			g_fs->Unlink(backup_filename);
-	}
+		m_last_saved_time = realtime - autosave_interval_in_seconds * 1000 + 30000;
+	};
 
-	log("Autosave: save took %d ms\n", m_last_saved_time - realtime);
-	game.get_ipl()->get_chat_provider()->send_local
-		(_("Game saved"));
+	std::function<void()> on_success_funct =
+		[backup_filename, &game, this]() {
+		if (backup_filename.length() > 0 && g_fs->FileExists(backup_filename)) {
+			g_fs->Unlink(backup_filename);
+		}
+		game.get_ipl()->get_chat_provider()->send_local
+			(_("Game saved"));
+	};
+
+	// Launch the save worker
+	save(game, complete_filename, on_error_funct, on_success_funct);
 }
 
 /**
@@ -159,6 +216,7 @@ bool SaveHandler::save_game
 	 const std::string &       complete_filename,
 	 std::string       * const error)
 {
+	m_save_mutex.lock();
 	bool const binary =
 		!g_options.pull_section("global").get_bool("nozip", false);
 	// Make sure that the base directory exists
@@ -176,7 +234,9 @@ bool SaveHandler::save_game
 	Game_Saver gs(*fs, game);
 	try {
 		gs.save();
+		m_save_mutex.unlock();
 	} catch (const std::exception & e) {
+		m_save_mutex.unlock();
 		if (error)
 			*error = e.what();
 		result = false;
@@ -187,3 +247,4 @@ bool SaveHandler::save_game
 
 	return result;
 }
+

@@ -1322,6 +1322,31 @@ void WLApplication::handle_commandline_parameters() throw (Parameter_error)
 	}
 }
 
+void WLApplication::post_runnable(std::function<void()> funct)
+{
+	m_runnables_mutex.lock();
+	m_runnables.push_back(funct);
+	log("Runnable posted, total: %d\n", m_runnables.size());
+	m_runnables_mutex.unlock();
+}
+
+void WLApplication::run_runnables()
+{
+	// Run runnable for 1/10 of the frame time at most
+	int32_t maxfps = g_options.pull_section("global").get_int("maxfps", 25);
+	int32_t duration = 100 / maxfps;
+	int32_t end = time(0) + duration;
+	m_runnables_mutex.lock();
+	while (!m_runnables.empty() && time(0) < end) {
+		std::function<void()> funct = m_runnables.front();
+		funct();
+		m_runnables.erase(m_runnables.begin());
+		log("Runnable ran, remaining: %d\n", m_runnables.size());
+	}
+	m_runnables_mutex.unlock();
+}
+
+
 /**
  * Print usage information
  */

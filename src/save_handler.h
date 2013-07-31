@@ -21,6 +21,8 @@
 #define SAVE_HANDLER_H
 
 #include <cstring>
+#include <functional>
+#include <mutex>
 #include <string>
 
 #include <stdint.h>
@@ -34,6 +36,13 @@ class SaveHandler {
 public:
 	SaveHandler() : m_last_saved_time(0), m_initialized(false), m_allow_saving(true),
 		m_save_requested(false), m_save_filename("") {}
+
+
+	void save
+		(Widelands::Game&, const std::string& filename,
+		std::function<void(std::string)> onError = nullptr,
+		std::function<void()> onSuccess = nullptr);
+
 	void think(Widelands::Game &, int32_t currenttime);
 	std::string create_file_name(std::string dir, std::string filename);
 	bool save_game
@@ -53,12 +62,18 @@ public:
 	}
 
 private:
+	void save_worker
+		(Widelands::Game&, std::string filename,
+		std::function<void(std::string)> onError = nullptr,
+		std::function<void()> onSuccess = nullptr);
+
 	int32_t m_last_saved_time;
 	bool m_initialized;
 	bool m_allow_saving;
 	bool m_save_requested;
 	std::string m_save_filename;
 	std::string m_current_filename;
+	std::mutex m_save_mutex;
 
 	void initialize(int32_t currenttime);
 };

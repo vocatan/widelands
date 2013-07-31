@@ -197,7 +197,7 @@ int32_t Panel::run()
 			Panel::ui_mousemove,
 			Panel::ui_key
 		};
-
+		app->run_runnables();
 		app->handle_input(&icb);
 		if (app->should_die())
 			end_modal(dying_code);
