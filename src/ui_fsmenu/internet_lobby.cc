@@ -20,6 +20,8 @@
 #include "ui_fsmenu/internet_lobby.h"
 
 #include <boost/bind.hpp>
+#include <functional>
+#include <thread>
 
 #include "compile_diagnostics.h"
 #include "constants.h"
@@ -31,6 +33,7 @@
 #include "network/nethost.h"
 #include "profile/profile.h"
 #include "ui_basic/messagebox.h"
+#include "wlapplication.h"
 
 Fullscreen_Menu_Internet_Lobby::Fullscreen_Menu_Internet_Lobby
 	(char const * const nick, char const * const pwd, bool registered)
@@ -111,11 +114,17 @@ Fullscreen_Menu_Internet_Lobby::Fullscreen_Menu_Internet_Lobby
 		 get_w() * 4 / 125,    get_h() * 51 / 100,
 		 m_lisw, get_h() * 44 / 100,
 		 InternetGaming::ref()),
+// Connecting message box
+	m_connecting_messagebox(this,
+		_("Connecting"), _("Connecting to the metaserver. This may take"
+		" a few seconds depending on your connection speed. Press OK "
+		"to cancel"), UI::WLMessageBox::MB_Type::OK),
 
 // Login information
 	nickname(nick),
 	password(pwd),
-	reg(registered)
+	reg(registered),
+	m_connecting(false)
 {
 	joingame.sigclicked.connect
 		(boost::bind
@@ -165,6 +174,10 @@ Fullscreen_Menu_Internet_Lobby::Fullscreen_Menu_Internet_Lobby
 	opengames   .double_clicked.connect
 		(boost::bind(&Fullscreen_Menu_Internet_Lobby::server_doubleclicked, this, _1));
 
+	m_connecting_messagebox.set_visible(false);
+	m_connecting_messagebox.ok.connect
+		(boost::bind(&Fullscreen_Menu_Internet_Lobby::clicked_back, this));
+
 	// try to connect to the metaserver
 	if (!InternetGaming::ref().error() && !InternetGaming::ref().logged_in())
 		connectToMetaserver();
@@ -181,6 +194,7 @@ void Fullscreen_Menu_Internet_Lobby::think ()
 		// If we have no connection try to connect
 		if (!InternetGaming::ref().logged_in()) {
 			connectToMetaserver();
+			return;
 		}
 
 		// Check whether metaserver send some data
@@ -194,6 +208,28 @@ void Fullscreen_Menu_Internet_Lobby::think ()
 		fillGamesList(InternetGaming::ref().games());
 }
 
+void Fullscreen_Menu_Internet_Lobby::connectToMetaServerWorker
+	(const std::string& login, const std::string& password, bool reg,
+	 const std::string& metaserver, uint32_t port,
+	 std::function<void()> on_fail_function,
+	 std::function<void()> on_success_function)
+{
+	bool connected = true;
+	if (!InternetGaming::ref().logged_in()) {
+		try {
+			connected = InternetGaming::ref().login(nickname, password, reg, metaserver, port);
+		} catch (const std::exception & e) {
+			log("Connection failed : %s\n", e.what());
+			connected = false;
+		}
+	}
+	WLApplication* app = WLApplication::get();
+	if (connected) {
+		app->post_runnable(on_success_function);
+	} else {
+		app->post_runnable(on_fail_function);
+	}
+}
 
 /// connects Widelands with the metaserver
 void Fullscreen_Menu_Internet_Lobby::connectToMetaserver()
@@ -202,12 +238,28 @@ void Fullscreen_Menu_Internet_Lobby::connectToMetaserver()
 	const std::string & metaserver = s.get_string("metaserver", INTERNET_GAMING_METASERVER.c_str());
 	uint32_t port = s.get_natural("metaserverport", INTERNET_GAMING_PORT);
 
-
-	if (InternetGaming::ref().login(nickname, password, reg, metaserver, port))
-	{
-		// Update of server spinbox
-		maxclients.setInterval(1, InternetGaming::ref().max_clients());
+	if (m_connecting) {
+		return;
 	}
+	m_connecting = true;
+	m_connecting_messagebox.set_visible(true);
+
+	std::function<void()> success_funct = [this](){
+		maxclients.setInterval(1, InternetGaming::ref().max_clients());
+		m_connecting = false;
+		m_connecting_messagebox.set_visible(false);
+	};
+	std::function<void()> fail_funct = [this](){
+		m_connecting = false;
+		m_connecting_messagebox.set_visible(false);
+		end_modal(0);
+	};
+
+	std::thread connect_thread
+		(&Fullscreen_Menu_Internet_Lobby::connectToMetaServerWorker, this,
+		 nickname, password, reg, metaserver, port, fail_funct, success_funct);
+
+	connect_thread.detach();
 }
 
 

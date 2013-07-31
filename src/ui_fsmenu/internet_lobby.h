@@ -30,6 +30,7 @@
 #include "ui_basic/button.h"
 #include "ui_basic/editbox.h"
 #include "ui_basic/listselect.h"
+#include "ui_basic/messagebox.h"
 #include "ui_basic/spinbox.h"
 #include "ui_basic/table.h"
 #include "ui_basic/textarea.h"
@@ -62,11 +63,19 @@ private:
 	UI::Table<const INet_Client * const> clientsonline;
 	UI::Listselect<INet_Game> opengames;
 	GameChatPanel chat;
+	UI::WLMessageBox m_connecting_messagebox;
 
 	// Login information
 	const char * nickname;
 	const char * password;
 	bool         reg;
+	bool         m_connecting;
+
+	void connectToMetaServerWorker
+	(const std::string& login, const std::string& password, bool reg,
+	 const std::string& metaserver, uint32_t port,
+	 std::function<void()> on_fail_function,
+	 std::function<void()> on_success_function);
 
 	void fillGamesList (const std::vector<INet_Game> &);
 	void fillClientList(const std::vector<INet_Client> &);
