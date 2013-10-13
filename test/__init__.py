@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import platform
 
 class WidelandsTestCase(unittest.TestCase):
     do_use_random_directory = True
@@ -60,11 +61,21 @@ class WidelandsTestCase(unittest.TestCase):
                 stdout_file.write(line)
                 stdout_file.flush()
             widelands.communicate()
-
+            if platform.system() == "Windows":
+                win_stdout = self.path_to_widelands_binary.replace("widelands.exe","stdout.txt")
+                win_stderr = self.path_to_widelands_binary.replace("widelands.exe","stderr.txt")
+                with open(win_stdout,"r") as f:
+                    for line in f:
+                        stdout_file.write(line)
+                    stdout_file.flush()
+                if (os.path.exists(win_stderr)):
+                    with open(win_stderr,"r") as f:
+                        for line in f:
+                            stdout_file.write(line)
+                        stdout_file.flush()
             stdout_file.write("\n\n---- TestRunner: Widelands terminated.\n\n")
             self.widelands_returncode = widelands.returncode
         self.stdout = open(stdout_filename, "r").read()
-
         self.assertTrue(self.widelands_returncode == 0,
             "Widelands exited abnormally. Analyze the files in %s to see why this test case failed." % self.run_dir
         )
