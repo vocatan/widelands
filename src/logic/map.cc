@@ -1211,9 +1211,22 @@ NodeCaps Map::calc_nodecaps_pass2
 			} while (mr.advance(*this));
 		}
 
-		if ((buildsize == BaseImmovable::BIG) && is_port_space(f) && !find_portdock(f).empty())
+		const bool has_portdock = (buildsize == BaseImmovable::BIG) && !find_portdock(f).empty();
+		// Testing ALL BIG portspaces for portdock
+		if (has_portdock) { //NOCOM
 			caps |= BUILDCAPS_PORT;
-
+			printf (" testing field %3dx%3d\n", f.x, f.y);
+			if (!is_port_space(f)) {
+				// This is newly enabled portspace, inserting
+				set_port_space(f, true);
+				printf (" setting as portspace\n");
+			}
+		} else if ((buildsize == BaseImmovable::BIG) && is_port_space(f) && !has_portdock) {
+			set_port_space(f, false);
+			printf (" removing field %3dc%3d from portspaces\n", f.x, f.y);
+			
+		}
+		
 		caps |= buildsize;
 	}
 	return static_cast<NodeCaps>(caps);
