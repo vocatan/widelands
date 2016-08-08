@@ -194,7 +194,7 @@ endif (WIN32)
 
 if (OPTION_LINKING_REDUCE_MEMORY)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no-keep-memory")
-    set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -Wl,-no-keep-memory")
+    #set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -Wl,-no-keep-memory")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no-keep-memory")
     message (STATUS "Enabled -no-keep-memory for linker")
 endif()
