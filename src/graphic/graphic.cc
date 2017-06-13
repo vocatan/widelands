@@ -59,7 +59,10 @@ void set_icon(SDL_Window* sdl_window) {
 
 }  // namespace
 
-Graphic::Graphic() : image_cache_(new ImageCache()), animation_manager_(new AnimationManager()) {
+Graphic::Graphic() :
+	 image_cache_(new ImageCache()),
+     animation_manager_(new AnimationManager()) {
+	// all else will happen in initialize
 }
 
 /**
@@ -87,8 +90,11 @@ void Graphic::initialize(const TraceGl& trace_gl,
 
 	max_texture_size_ = static_cast<int>(max);
 
-	resolution_changed();
-	set_fullscreen(init_fullscreen);
+    if (init_fullscreen) {
+        set_fullscreen(init_fullscreen); // implies resolution_changed();
+    }
+    // else resolution_changed(); // TODO(klaus.halfmann): do we really need this?
+
 
 	SDL_SetWindowTitle(sdl_window_, ("Widelands " + build_id() + '(' + build_type() + ')').c_str());
 	set_icon(sdl_window_);

@@ -347,8 +347,8 @@ WLApplication::WLApplication(int const argc, char const* const* const argv)
 	   config.get_bool("fullscreen", false));
 	g_sound_handler.init();  //  TODO(unknown): memory leak!
 
-	// This might grab the input.
-	refresh_graphics();
+	// Eventually grab the input.
+    set_input_grab(config.get_bool("inputgrab", false));
 
 	// seed random number generator used for random tribe selection
 	std::srand(time(nullptr));
