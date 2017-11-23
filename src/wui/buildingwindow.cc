@@ -66,13 +66,11 @@ BuildingWindow::~BuildingWindow() {
 }
 
 void BuildingWindow::on_building_note(const Widelands::NoteBuilding& note) {
-	if (note.serial == building_.serial()) {
+	if (!is_dying_ && note.serial == building_.serial()) {
 		switch (note.action) {
 		// The building's state has changed
 		case Widelands::NoteBuilding::Action::kChanged:
-			if (!is_dying_) {
-				init(true);
-			}
+            init(true);
 			break;
 		// The building is no more
 		case Widelands::NoteBuilding::Action::kStartWarp:
@@ -114,6 +112,8 @@ void BuildingWindow::init(bool avoid_fastclick) {
 
 // Stop everybody from thinking to avoid segfaults
 void BuildingWindow::die() {
+    assert(!is_dying_); // Building Window must not die() twice
+
 	is_dying_ = true;
 	hide_workarea();
 	set_thinks(false);

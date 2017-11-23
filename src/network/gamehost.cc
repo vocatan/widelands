@@ -1456,8 +1456,9 @@ void GameHost::write_setting_player(SendPacket& packet, uint8_t const number) {
 }
 
 void GameHost::write_setting_all_players(SendPacket& packet) {
-	packet.unsigned_8(d->settings.players.size());
-	for (uint8_t i = 0; i < d->settings.players.size(); ++i)
+    uint8_t players_size = d->settings.players.size();
+	packet.unsigned_8(players_size);
+	for (uint8_t i = 0; i < players_size; ++i)
 		write_setting_player(packet, i);
 }
 

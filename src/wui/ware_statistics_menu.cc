@@ -60,10 +60,12 @@ static const RGBColor colors[] = {
    RGBColor(20, 104, 109),  RGBColor(129, 80, 21),   RGBColor(153, 153, 0),  RGBColor(221, 69, 77),
    RGBColor(34, 136, 83),   RGBColor(106, 107, 207), RGBColor(204, 102, 51), RGBColor(127, 28, 75),
    RGBColor(111, 142, 204), RGBColor(174, 10, 0),    RGBColor(96, 143, 71),  RGBColor(163, 74, 128),
-   RGBColor(183, 142, 10),  RGBColor(105, 155, 160),  // shark infested water, run!
+   RGBColor(183, 142, 10),  RGBColor(105, 155, 160),
+   // will roll over when reaching the end
 };
 
-static const uint32_t colors_length = sizeof(colors) / sizeof(RGBColor);
+constexpr unsigned int kNumColors = sizeof(colors) / sizeof(RGBColor); // 31, nr_wares is actually 85
+// static const uint32_t colors_length = ; // TODO(khalfmann): red rid of one of these two
 
 struct StatisticWaresDisplay : public AbstractWaresDisplay {
 private:
@@ -103,12 +105,15 @@ WareStatisticsMenu::WareStatisticsMenu(InteractivePlayer& parent,
                       kPlotWidth + 2 * kSpacing,
                       270,
                       _("Ware Statistics")) {
-	uint8_t const nr_wares = parent.get_player()->egbase().tribes().nrwares();
+
+    Widelands::Player* player = parent.get_player();
+
+	uint8_t const nr_wares = player->egbase().tribes().nrwares();
 
 	// Init color sets
 	color_map_.resize(nr_wares);
 	std::fill(color_map_.begin(), color_map_.end(), INACTIVE);
-	active_colors_.resize(colors_length);
+	active_colors_.resize(kNumColors);
 	std::fill(active_colors_.begin(), active_colors_.end(), 0);
 
 	//  First, we must decide about the size.
@@ -152,35 +157,27 @@ WareStatisticsMenu::WareStatisticsMenu(InteractivePlayer& parent,
 	// Add tabbed environment to box
 	box->add(tabs, UI::Box::Resizing::kFullSize);
 
-	// Register statistics data
+
+    // Register statistics data
 	for (Widelands::DescriptionIndex cur_ware = 0; cur_ware < nr_wares; ++cur_ware) {
-		plot_production_->register_plot_data(
-		   cur_ware,
-		   parent.get_player()->get_ware_production_statistics(Widelands::DescriptionIndex(cur_ware)),
-		   colors[cur_ware]);
 
-		plot_consumption_->register_plot_data(cur_ware,
-		                                      parent.get_player()->get_ware_consumption_statistics(
-		                                         Widelands::DescriptionIndex(cur_ware)),
-		                                      colors[cur_ware]);
+        int colorIndex = cur_ware % kNumColors;
+        const RGBColor& ware_color = colors[colorIndex];
 
-		plot_economy_->register_plot_data(
-		   cur_ware,
-		   parent.get_player()->get_ware_production_statistics(Widelands::DescriptionIndex(cur_ware)),
-		   colors[cur_ware]);
+        std::vector<uint32_t> const* ware_prod_stats  = player->get_ware_production_statistics(cur_ware);
+        std::vector<uint32_t> const* ware_cons_stats  = player->get_ware_consumption_statistics(cur_ware);
+        std::vector<uint32_t> const* ware_stock_stats = player->get_ware_production_statistics(cur_ware);
 
-		plot_economy_->register_negative_plot_data(
-		   cur_ware, parent.get_player()->get_ware_consumption_statistics(
-		                Widelands::DescriptionIndex(cur_ware)));
-
-		plot_stock_->register_plot_data(cur_ware, parent.get_player()->get_ware_stock_statistics(
-		                                             Widelands::DescriptionIndex(cur_ware)),
-		                                colors[cur_ware]);
+        plot_production_->register_plot_data (cur_ware, ware_prod_stats, ware_color);
+		plot_consumption_->register_plot_data(cur_ware, ware_cons_stats, ware_color);
+		plot_economy_->register_plot_data    (cur_ware, ware_prod_stats, ware_color);
+		plot_economy_->register_negative_plot_data(cur_ware, ware_cons_stats);
+		plot_stock_->register_plot_data      (cur_ware, ware_stock_stats, ware_color);
 	}
 
 	box->add(
 	   new StatisticWaresDisplay(
-	      box, 0, 0, parent.get_player()->tribe(),
+	      box, 0, 0, player->tribe(),
 	      boost::bind(&WareStatisticsMenu::cb_changed_to, boost::ref(*this), _1, _2), color_map_),
 	   UI::Box::Resizing::kFullSize);
 
@@ -203,7 +200,7 @@ void WareStatisticsMenu::cb_changed_to(Widelands::DescriptionIndex id, bool what
 		for (uint32_t i = 0; i < active_colors_.size(); ++i) {
 			if (!active_colors_[i]) {
 				// Prevent index out of bounds
-				color_index = std::min(i + 1, colors_length - 1);
+				color_index = std::min(i + 1, kNumColors - 1);
 				active_colors_[i] = 1;
 				break;
 			}

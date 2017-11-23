@@ -116,6 +116,11 @@ endif()
 wl_add_flag(WL_GENERIC_CXX_FLAGS "-std=c++11")
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  # See http://clang.llvm.org/docs/AddressSanitizer.html
+  wl_add_flag(WL_COMPILE_DIAGNOSTICS "-fsanitize=address")
+  wl_add_flag(WL_COMPILE_DIAGNOSTICS "-fno-omit-frame-pointer")
+  set (CMAKE_EXE_LINKER_FLAGS "-fsanitize=address" CACHE STRING "Set by widelands CMakeLists.txt" FORCE)
+
   wl_add_flag(WL_COMPILE_DIAGNOSTICS "-Weverything")
 
   # Disabled warnings that are overly verbose right now or just do not make sense.
@@ -127,6 +132,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   wl_add_flag(WL_COMPILE_DIAGNOSTICS "-Wno-padded")
   wl_add_flag(WL_COMPILE_DIAGNOSTICS "-Wno-sign-conversion")
   wl_add_flag(WL_COMPILE_DIAGNOSTICS "-Wno-missing-noreturn")
+  wl_add_flag(WL_COMPILE_DIAGNOSTICS "-Winconsistent-missing-destructor-override")
+  wl_add_flag(WL_COMPILE_DIAGNOSTICS "-Wzero-as-null-pointer-constant")
 
   # It is impossible to write code that both GCC and Clang will like,
   # so we have to switch off the warning for one of them.

@@ -181,10 +181,7 @@ struct MultiPlayerPlayerGroup : public UI::Box {
 	     id_(id),
 	     player(this,
 	            "player",
-	            0,
-	            0,
-	            h,
-	            h,
+	            0, 0, h, h,
 	            g_gr->images().get("images/ui_basic/but1.png"),
 	            playercolor_image(id, "images/players/player_position_menu.png"),
 	            (boost::format(_("Player %u")) % static_cast<unsigned int>(id_ + 1)).str(),
@@ -228,20 +225,16 @@ struct MultiPlayerPlayerGroup : public UI::Box {
 
 		subscriber_ =
 		   Notifications::subscribe<NoteGameSettings>([this](const NoteGameSettings& note) {
-			   switch (note.action) {
-			   case NoteGameSettings::Action::kMap:
-				   // We don't care about map updates, since we receive enough notifications for the
-				   // slots.
-				   break;
-			   default:
-				   if (s->settings().players.empty()) {
-					   // No map/savegame yet
-					   return;
-				   }
-				   if (id_ == note.position ||
-				       s->settings().players[id_].state == PlayerSettings::State::kShared) {
-					   update();
-				   }
+               // We don't care about map updates,
+               // since we receive enough notifications for the slots.
+			   if (note.action != NoteGameSettings::Action::kMap) {
+                   const std::vector<PlayerSettings>& players = s->settings().players;
+				   if (id_ < players.size()) { // cares for empty list, too
+                       if (id_ == note.position ||
+                           players[id_].state == PlayerSettings::State::kShared) {
+                           update();
+                       }
+                   }
 			   }
 			});
 
