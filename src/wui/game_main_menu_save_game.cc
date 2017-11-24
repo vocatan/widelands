@@ -132,11 +132,8 @@ void GameMainMenuSaveGame::entry_selected() {
 	ok_.set_enabled(load_or_save_.table().selections().size() == 1);
 	load_or_save_.delete_button()->set_enabled(load_or_save_.has_selection());
 	if (load_or_save_.has_selection()) {
-		const SavegameData& gamedata = *game_.entry_selected();
-        std::string gamefileName = gamedata.filename; // provoke copy to Trigger Adress sanitizer
-        const char* const filename  = gamedata.filename.c_str();
-        std::string without_ext = FileSystem::filename_without_ext(filename);
-		filename_editbox_.set_text(without_ext);
+		const SavegameData& gamedata = *load_or_save_.entry_selected();
+		filename_editbox_.set_text(FileSystem::filename_without_ext(gamedata.filename.c_str()));
 	}
 }
 
