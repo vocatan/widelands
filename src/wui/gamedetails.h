@@ -32,7 +32,7 @@
  * Data about a savegame/replay that we're interested in.
  */
 struct SavegameData {
-	/// The filename of the currenty selected file
+	/// The filename of the currently selected file
 	std::string filename;
 	/// List of filenames when multiple files have been selected
 	std::string filename_list;

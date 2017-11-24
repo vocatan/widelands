@@ -192,7 +192,7 @@ std::unique_ptr<SavegameData> LoadOrSaveGame::entry_selected() {
 		    selections)
 		      .str();
 		result->filename_list = filename_list_string();
-	} else {
+	} else { // no selection at all.
 		delete_->set_tooltip("");
 	}
 	game_details_.update(*result);

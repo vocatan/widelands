@@ -82,8 +82,8 @@ void UniqueWindow::Registry::assign_toggle_button(UI::Button* button) {
 }
 
 void UniqueWindow::Registry::unassign_toggle_button() {
-	on_create = 0;
-	on_delete = 0;
+	on_create = nullptr;
+	on_delete = nullptr;
 }
 
 /**
@@ -103,9 +103,10 @@ UniqueWindow::UniqueWindow(Panel* const parent,
 		if (registry_->valid_pos) {
 			set_pos(Vector2i(registry_->x, registry_->y));
 			usedefaultpos_ = false;
-		}
-		if (registry_->on_create) {
-			registry_->on_create();
+
+            if (registry_->on_create) {
+                registry_->on_create();
+            }
 		}
 	}
 }

@@ -64,8 +64,7 @@ static const RGBColor colors[] = {
    // will roll over when reaching the end
 };
 
-constexpr unsigned int kNumColors = sizeof(colors) / sizeof(RGBColor); // 31, nr_wares is actually 85
-// static const uint32_t colors_length = ; // TODO(khalfmann): red rid of one of these two
+constexpr unsigned int kNumColors = sizeof(colors) / sizeof(RGBColor); // 51, nr_wares is actually 85
 
 struct StatisticWaresDisplay : public AbstractWaresDisplay {
 private:
